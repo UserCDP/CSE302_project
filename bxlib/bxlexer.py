@@ -24,10 +24,10 @@ class Lexer:
             'var'      ,
             'while'    ,
             # except block
-            'exception',
-            'raise',
-            'try',
-            'except',
+            # 'exception',
+            # 'raise',
+            # 'try',
+            # 'except',
         )
     }
     
@@ -36,6 +36,11 @@ class Lexer:
         'BOOL', 
         'IDENT' ,               # : str
         'NUMBER',               # : int
+
+        'EXCEPTION',
+        'RAISE',
+        'TRY',
+        'EXCEPT',
         
         # Punctuation
         'LPAREN'   ,
@@ -68,9 +73,10 @@ class Lexer:
         'STAR'     ,
         'TILD'     ,
     ) + tuple(keywords.values())
+    
     t_INT = r'int'
     t_BOOL = r'bool'
-    
+
     t_EXCEPTION = r'exception'
     t_RAISE = r'raise'
     t_TRY = r'try'
