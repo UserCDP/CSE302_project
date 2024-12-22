@@ -336,7 +336,6 @@ class Parser:
             position = self._position(p),
         )
 
-
     def p_arg(self, p):
         """arg : name COLON type_"""
         p[0] = (p[1], p[3])  # Name and type
