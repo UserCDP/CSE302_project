@@ -339,7 +339,7 @@ class TypeChecker:
     # First, process the declarations (like variables, functions, exceptions)
         for decl in prgm:
             match decl:
-                case ExceptionDecl(name):
+                case ExceptDecl(name):
                     self.for_exception_decl(decl)
                 case ProcDecl(name, arguments, retty, body, raises):
                     self.for_proc_decl(decl)
