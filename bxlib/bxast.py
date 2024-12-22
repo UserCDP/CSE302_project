@@ -153,23 +153,32 @@ class ProcDecl(TopDecl):
     rettype: Opt[Type]
     body: Statement
 
-@dc.dataclass
-class ExceptionDecl(TopDecl):
-    name: Name
-
+# --------------------------------------------------------------------
 @dc.dataclass
 class RaiseStatement(Statement):
-    exception: Name
+    """AST node representing a raise statement."""
+    exception: Name  # The name of the exception to be raised.
 
-@dc.dataclass
-class ExceptBlock(AST):
-    exception: Name
-    block: BlockStatement
-
+# --------------------------------------------------------------------
 @dc.dataclass
 class TryExceptStatement(Statement):
-    try_block: BlockStatement
-    except_blocks: list[ExceptBlock]
+    """AST node representing a try-except statement."""
+    body: list[Statement]
+    excepts: list[tuple[Name, Name, list[Statement]]]
+
+# --------------------------------------------------------------------
+@dc.dataclass
+class CatchStatement(Statement):
+    """AST node representing a catch statement."""
+    exception: Name
+    body: list[Statement]
+
+# --------------------------------------------------------------------
+@dc.dataclass
+class ExceptionDecl(TopDecl):
+    """AST node representing an exception declaration."""
+    name: Name
+    body: list[Statement]
 
 # --------------------------------------------------------------------
 Block   = list[Statement]

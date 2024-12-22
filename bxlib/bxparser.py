@@ -84,8 +84,6 @@ class Parser:
             position = self._position(p)
         )
 
-    # bxparser.py
-
     def p_type_(self, p):
         """type_ : INT
                 | BOOL"""
@@ -93,8 +91,6 @@ class Parser:
             p[0] = Type.INT
         elif p[1] == 'bool':
             p[0] = Type.BOOL
-
-
 
     def p_expression_var(self, p):
         """expr : name"""
@@ -267,6 +263,57 @@ class Parser:
     def p_stmt_block(self, p):
         """stmt : sblock"""
         p[0] = p[1]
+
+    # ----------- Exception block ----------------
+    def p_stmt_raise(self, p):
+        """stmt : RAISE name SEMICOLON """
+        p[0] = RaiseStatement(name = p[2], position = self._position(p))
+        
+    def p_stmt_tryexcept(self, p):
+        """stmt : TRY sblock catch catches """
+        catch_list = [p[3]]
+        for c in p[4]:
+            catches.append(c)
+        p[0] = TryExceptStatement(body = p[2], catches = catch_list, position = self._position(p))
+    
+    def p_catches(self, p):
+        """catches : 
+                    | catch catches
+        """
+        if len(p) > 1:
+            p[0] = [p[1]]
+            for c in p[2]:
+                p[0].append(c)
+        else:
+            p[0] = []
+    
+    def p_catch(self, p):
+        """catch : EXCEPT name sblock"""
+        p[0] = CatchStatement(name = p[2], body = p[3], position = self._position(p))
+
+    def p_raise_list(self, p):
+        """raise_list : name 
+                    | name COMMA raise_list"""
+        if len(p) == 2:
+            p[0] = [p[1]]
+        else:
+            p[0] = [p[1]] + p[3]
+            
+    def p_procdecl_except(self, p):
+        """procdecl : DEF name LPAREN args RPAREN rty RAISES raise_list sblock"""
+        p[0] = ProcDecl(
+            name       = p[2],
+            arguments  = p[4],
+            rettype    = p[6],
+            raises =    p[8],
+            body       = p[9],
+            position   = self._position(p),
+        )
+
+    def p_exception(self, p):
+        """exception : EXCEPTION name SEMICOLON """
+        p[0] = ExceptionDecl(name = p[2], position = self._position(p))
+    # --------- End of exception block -----------
         
     def p_stmts(self, p):
         """stmts :
@@ -289,14 +336,6 @@ class Parser:
             position = self._position(p),
         )
 
-    def p_names_comma1(self, p):
-        """names_comma1 : name
-                        | names_comma1 COMMA name"""
-        if len(p) == 2:
-            p[0] = [p[1]]
-        else:
-            p[0] = p[1]
-            p[1].append(p[3])
 
     def p_arg(self, p):
         """arg : name COLON type_"""
@@ -326,13 +365,14 @@ class Parser:
     def p_procdecl(self, p):
         """procdecl : DEF name LPAREN args RPAREN rty sblock"""
         p[0] = ProcDecl(
-            name      = p[2],
-            arguments = p[4],
-            rettype   = p[6],
-            body      = p[7],
-            position  = self._position(p),
+            name       = p[2],
+            arguments  = p[4],
+            rettype    = p[6],
+            raises =      [],
+            body       = p[7],
+            position   = self._position(p),
         )
-
+    
     def p_globvardecl(self, p):
         """globvardecl : VAR name EQ expr COLON type_ SEMICOLON"""
         p[0] = GlobVarDecl(
@@ -345,7 +385,8 @@ class Parser:
 
     def p_topdecl(self, p):
         """topdecl : procdecl
-                   | globvardecl"""
+                   | globvardecl
+                   | exception"""
         p[0] = p[1]
 
     def p_program(self, p):
@@ -371,40 +412,3 @@ class Parser:
             # self.parser.errok()
         else:
             self.reporter('syntax error at end of file')
-
-
-    # Define the rules for exception declarations, raise statements, and try-catch blocks
-    def p_exception_decl(self, p):
-        """decl : EXCEPTION IDENT SEMICOLON"""
-        p[0] = ExceptionDecl(
-            name=Name(value=p[2], position=self._position(p)),
-            position=self._position(p),
-        )
-
-    def p_raise_stmt(self, p):
-        """stmt : RAISE IDENT SEMICOLON"""
-        p[0] = RaiseStatement(
-            exception=Name(value=p[2], position=self._position(p)),
-            position=self._position(p),
-        )
-
-    def p_try_except_stmt(self, p):
-        """stmt : TRY sblock except_blocks"""
-        p[0] = TryExceptStatement(
-            try_block=p[2],
-            except_blocks=p[3],
-            position=self._position(p),
-        )
-
-    def p_except_blocks(self, p):
-        """except_blocks : except_blocks EXCEPT IDENT sblock
-                          | EXCEPT IDENT sblock"""
-        if len(p) == 5:
-            p[0] = p[1]
-        else:
-            p[0] = []
-        p[0].append(ExceptBlock(
-            exception=Name(value=p[-2], position=self._position(p)),
-            block=p[-1],
-            position=self._position(p),
-        ))

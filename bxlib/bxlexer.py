@@ -24,10 +24,11 @@ class Lexer:
             'var'      ,
             'while'    ,
             # except block
-            # 'exception',
-            # 'raise',
-            # 'try',
-            # 'except',
+            'exception',
+            'raise',
+            'try',
+            'except',
+            'raises'
         )
     }
     
@@ -37,10 +38,10 @@ class Lexer:
         'IDENT' ,               # : str
         'NUMBER',               # : int
 
-        'EXCEPTION',
-        'RAISE',
-        'TRY',
-        'EXCEPT',
+        # 'EXCEPTION',
+        # 'RAISE',
+        # 'TRY',
+        # 'EXCEPT',
         
         # Punctuation
         'LPAREN'   ,
