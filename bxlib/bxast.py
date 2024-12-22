@@ -164,13 +164,13 @@ class RaiseStatement(Statement):
 class TryExceptStatement(Statement):
     """AST node representing a try-except statement."""
     body: list[Statement]
-    excepts: list[tuple[Name, Name, list[Statement]]]
+    catches: list[tuple[Name, Name, list[Statement]]]
 
 # --------------------------------------------------------------------
 @dc.dataclass
 class CatchStatement(Statement):
     """AST node representing a catch statement."""
-    exception: Name
+    name: Name
     body: list[Statement]
 
 # --------------------------------------------------------------------
@@ -178,7 +178,8 @@ class CatchStatement(Statement):
 class ExceptionDecl(TopDecl):
     """AST node representing an exception declaration."""
     name: Name
-    body: list[Statement]
+    # body: list[Statement]
+    position: Opt[Range] = dc.field(kw_only = True, default = None)
 
 # --------------------------------------------------------------------
 Block   = list[Statement]
