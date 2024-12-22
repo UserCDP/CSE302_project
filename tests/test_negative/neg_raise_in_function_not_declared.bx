@@ -1,0 +1,13 @@
+exception DivByZero;
+def foo() : int {
+    raise DivByZero;
+    return 0;
+}
+def main() {
+    try {
+        var x = foo() : int;
+        print(x);
+    } except DivByZero {
+        print(42);
+    }
+}

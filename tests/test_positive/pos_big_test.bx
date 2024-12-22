@@ -1,0 +1,132 @@
+exception NegativeNumber;
+exception DivByZero;
+exception CustomError;
+
+var globalInt = 42 : int;
+
+def safeDiv(x : int, y : int) : int raises DivByZero {
+    if (y == 0) {
+        raise DivByZero;
+    } else {
+        return x / y;
+    }
+}
+
+def maybeRaise(x : int) raises NegativeNumber {
+    if (x < 0) {
+        raise NegativeNumber;
+    }
+    print(999);
+}
+
+def multiRaiseTest(x : int, y : int) : int raises NegativeNumber, DivByZero, CustomError {
+    if (x < 0) {
+        raise NegativeNumber;
+    } else if (y == 0) {
+        raise DivByZero;
+    } else if (x + y == 13) {
+        raise CustomError;
+    } else {
+        return x + y;
+    }
+}
+
+def main() {
+    var i = 0 : int;
+    var localBool = false : bool;
+    
+    print(globalInt);
+
+    if (i == 0) {
+        print(1);
+    } else if (i == 1) {
+        print(2);
+    } else {
+        print(3);
+    }
+
+    if (!localBool) {
+        localBool = true;
+        print(1000);
+    } else {
+        print(1001);
+    }
+
+    while (i < 5) {
+        print(i);
+        i = i + 1;
+        if (i == 2) {
+            continue;
+        }
+        if (i == 4) {
+            break;
+        }
+    }
+
+    print(i);
+
+    try {
+        print(safeDiv(10, 0));
+    } except DivByZero {
+        print(100);
+    }
+
+    try {
+        maybeRaise(-5);
+    } except NegativeNumber {
+        print(101);
+    }
+
+    try {
+        maybeRaise(10);
+    } except NegativeNumber {
+        print(99999);
+    }
+
+    try {
+        print(multiRaiseTest(5, 0));
+    } except NegativeNumber {
+        print(200);
+    } except DivByZero {
+        print(201);
+    } except CustomError {
+        print(202);
+    }
+
+    try {
+        print(multiRaiseTest(-1, 10));
+    } except NegativeNumber {
+        print(210);
+    } except DivByZero {
+        print(211);
+    } except CustomError {
+        print(212);
+    }
+
+    try {
+        print(multiRaiseTest(6, 7));
+    } except NegativeNumber {
+        print(220);
+    } except DivByZero {
+        print(221);
+    } except CustomError {
+        print(222);
+    }
+
+    try {
+        print(multiRaiseTest(4, 4));
+    } except NegativeNumber {
+        print(300);
+    } except DivByZero {
+        print(301);
+    } except CustomError {
+        print(302);
+    }
+
+    print((1 == 1) && (2 < 3));
+    print((1 == 2) || (2 == 2));
+    print(!(2 == 3));
+
+    print(i);
+    print(9999);
+}

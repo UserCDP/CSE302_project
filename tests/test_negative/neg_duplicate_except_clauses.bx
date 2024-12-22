@@ -1,0 +1,10 @@
+exception DivByZero;
+def main() {
+    try {
+        print(1);
+    } except DivByZero {
+        print(42);
+    } except DivByZero {
+        print(43);
+    }
+}

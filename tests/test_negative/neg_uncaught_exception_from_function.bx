@@ -1,0 +1,9 @@
+exception DivByZero;
+def foo() : int raises DivByZero {
+    raise DivByZero;
+    return 0;
+}
+def main() {
+    var x = foo() + 2 : int;
+    print(x);
+}

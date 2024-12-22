@@ -1,0 +1,11 @@
+exception DivByZero;
+exception OutOfBounds;
+def main() {
+    try {
+        raise DivByZero;
+    } except DivByZero {
+        print(42);
+    } except OutOfBounds {
+        print(43); // This block is unreachable
+    }
+}

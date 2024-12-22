@@ -1,0 +1,7 @@
+exception DivByZero;
+def foo() : int raises UnknownException {
+    return 0;
+}
+def main() {
+    print(1);
+}
