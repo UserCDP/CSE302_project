@@ -1,0 +1,15 @@
+exception DivByZero;
+exception OutOfBounds;
+def foo() : int raises DivByZero {
+    raise DivByZero;
+    return 0;
+}
+def main() {
+    try {
+        var x = foo() : int;
+    } except DivByZero {
+        print(42);
+    } except OutOfBounds {
+        print(43); // This block is unreachable
+    }
+}

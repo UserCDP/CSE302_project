@@ -1,0 +1,8 @@
+exception DivByZero;
+exception OutOfBounds;
+def foo() : int raises DivByZero, OutOfBounds, DivByZero {
+    return 0;
+}
+def main() {
+    print(1);
+}

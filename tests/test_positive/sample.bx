@@ -1,0 +1,17 @@
+exception DivByZero;
+
+def safe_div(x:int, y:int) : int raises DivByZero {
+    if (y == 0) {
+        raise DivByZero;
+    }
+    return x / y;
+}
+
+def main() {
+    try {
+        var result = safe_div(10, 0) : int;
+        print(result);
+    } except DivByZero {
+        print(42);
+    }
+}

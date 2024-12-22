@@ -1,0 +1,142 @@
+exception DivByZero;
+exception NegativeNumber;
+exception MaxExceeded;
+exception CustomError;
+
+var globalInt1 = 10 : int;
+var globalInt2 = 0 : int;
+
+def safeDiv(a : int, b : int) : int raises DivByZero {
+    if (b == 0) {
+        raise DivByZero;
+    }
+    return a / b;
+}
+
+def checkMax(x : int) : int raises MaxExceeded {
+    if (x > 100) {
+        raise MaxExceeded;
+    }
+    return x * 2;
+}
+
+def deepChainA(x : int) : int raises NegativeNumber, DivByZero, MaxExceeded {
+    if (x < 0) {
+        raise NegativeNumber;
+    }
+    var tmp = safeDiv(100, x) : int; 
+    var val = checkMax(tmp) : int; 
+    return val;
+}
+
+def deepChainB(x : int) : int raises NegativeNumber, DivByZero, MaxExceeded, CustomError {
+    var result = deepChainA(x) : int; 
+    if (result == 20) {
+        raise CustomError;
+    }
+    return result + x;
+}
+
+def main() {
+    var i = 0 : int;
+    var localFlag = true : bool;
+
+    print(111);
+
+    if (i == 0) {
+        print(222);
+    } else if (i == 1) {
+        print(333);
+    } else {
+        print(444);
+    }
+
+    while (i < 5) {
+        i = i + 1;
+        if (i == 2) {
+            print(555);
+            continue;
+        }
+        if (i == 4) {
+            print(666);
+            break;
+        }
+        print(i);
+    }
+
+    print(i);
+
+    try {
+        print(deepChainB(-1));
+    } except NegativeNumber {
+        print(777);
+    } except DivByZero {
+        print(888);
+    } except MaxExceeded {
+        print(999);
+    } except CustomError {
+        print(1000);
+    }
+
+    try {
+        print(deepChainB(1));
+    } except NegativeNumber {
+        print(1100);
+    } except DivByZero {
+        print(1200);
+    } except MaxExceeded {
+        print(1300);
+    } except CustomError {
+        print(1400);
+    }
+
+    try {
+        print(deepChainB(10));
+    } except NegativeNumber {
+        print(1500);
+    } except DivByZero {
+        print(1600);
+    } except MaxExceeded {
+        print(1700);
+    } except CustomError {
+        print(1800);
+    }
+
+    try {
+        print(deepChainB(5));
+    } except NegativeNumber {
+        print(1900);
+    } except DivByZero {
+        print(2000);
+    } except MaxExceeded {
+        print(2100);
+    } except CustomError {
+        print(2200);
+    }
+
+    try {
+        print(deepChainB(101));
+    } except NegativeNumber {
+        print(2300);
+    } except DivByZero {
+        print(2400);
+    } except MaxExceeded {
+        print(2500);
+    } except CustomError {
+        print(2600);
+    }
+
+    localFlag = false;
+    if (!localFlag) {
+        print(2700);
+    }
+
+    var count = 0 : int;
+    while (count < 3) {
+        print(count);
+        count = count + 1;
+    }
+
+    print(globalInt1);
+    print(globalInt2);
+}

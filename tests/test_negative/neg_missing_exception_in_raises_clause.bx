@@ -1,0 +1,22 @@
+exception DivByZero;
+exception OutOfBounds;
+exception NullReference;
+
+def foo() : int raises DivByZero, OutOfBounds, NullReference {
+    return 0;
+}
+
+def bar() : int raises DivByZero {
+    try {
+        print(foo()); 
+    } except NullReference {
+        print(42);
+    }
+    // Forgot to handle or declare OutOfBounds
+    return 0; 
+}
+
+def main() {
+    var x = bar() : int;
+    print(x);
+}

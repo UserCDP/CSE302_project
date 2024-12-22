@@ -1,0 +1,33 @@
+exception DivByZero;
+exception OutOfBounds;
+
+def foo(x : int) : int raises DivByZero, OutOfBounds {
+    if (x == 0) {
+        raise DivByZero;
+    }
+    if (x > 100) {
+        raise OutOfBounds;
+    }
+    return x;
+}
+
+def main() {
+    try {
+        var y = foo(0) : int;
+    } except DivByZero {
+        print(42);
+    } except OutOfBounds {
+        print(43);
+    }
+    
+    try {
+        var z = foo(101) : int;
+    } except DivByZero {
+        print(44);
+    }
+    except OutOfBounds {
+        print(45);
+    }
+    
+    print(1);
+}

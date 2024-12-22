@@ -1,0 +1,6 @@
+exception DivByZero;
+def main() {
+    try {
+        print(1);
+    }
+}

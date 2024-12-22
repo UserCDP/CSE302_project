@@ -1,0 +1,8 @@
+exception DivByZero;
+def main() {
+    try {
+        raise DivByZero;
+    } except DivByZero {
+        print(42);
+    }
+}

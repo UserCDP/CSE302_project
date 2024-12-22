@@ -1,0 +1,16 @@
+exception DivByZero;
+exception OutOfBounds;
+
+def main() {
+    try {
+        try {
+            raise DivByZero;
+        } except DivByZero {
+            print(42);
+            raise OutOfBounds;
+        }
+    } except OutOfBounds {
+        print(43);
+    }
+    print(1);
+}

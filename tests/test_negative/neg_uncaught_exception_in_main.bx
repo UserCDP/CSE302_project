@@ -1,0 +1,4 @@
+exception DivByZero;
+def main() {
+    raise DivByZero;
+}
