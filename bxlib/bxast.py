@@ -152,6 +152,7 @@ class ProcDecl(TopDecl):
     arguments: list[tuple[list[Name], Type]]
     rettype: Opt[Type]
     body: Statement
+    raises: list[Name]
 
 # --------------------------------------------------------------------
 @dc.dataclass

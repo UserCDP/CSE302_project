@@ -273,7 +273,7 @@ class Parser:
         """stmt : TRY sblock catch catches """
         catch_list = [p[3]]
         for c in p[4]:
-            catches.append(c)
+            catch_list.append(c)
         p[0] = TryExceptStatement(body = p[2], catches = catch_list, position = self._position(p))
     
     def p_catches(self, p):
@@ -302,12 +302,12 @@ class Parser:
     def p_procdecl_except(self, p):
         """procdecl : DEF name LPAREN args RPAREN rty RAISES raise_list sblock"""
         p[0] = ProcDecl(
-            name       = p[2],
-            arguments  = p[4],
-            rettype    = p[6],
-            raises =    p[8],
-            body       = p[9],
-            position   = self._position(p),
+            name        = p[2],
+            arguments   = p[4],
+            rettype     = p[6],
+            raises      =    p[8],
+            body        = p[9],
+            position    = self._position(p),
         )
 
     def p_exception(self, p):
