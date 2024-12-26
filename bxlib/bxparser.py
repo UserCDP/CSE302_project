@@ -316,8 +316,8 @@ class Parser:
             name       = p[2],
             arguments  = p[4],
             rettype    = p[6],
-            raises     = [],
-            body       = p[7],
+            raises     = p[7],
+            body       = p[8],
             position   = self._position(p),
         )
 
@@ -342,7 +342,11 @@ class Parser:
         catch_list = [p[3]]
         for c in p[4]:
             catch_list.append(c)
-        p[0] = TryExceptStatement(body = p[2], catches = catch_list, position = self._position(p))
+        p[0] = TryExceptStatement(
+            body = p[2],
+            catches = catch_list,
+            position = self._position(p)
+        )
     
     def p_catches(self, p):
         """catches : 
@@ -369,7 +373,10 @@ class Parser:
 
     def p_exception(self, p):
         """exception : EXCEPTION name SEMICOLON"""
-        p[0] = ExceptionDecl(name=p[2], position=self._position(p))
+        p[0] = ExceptionDecl(
+            name=p[2], 
+            position=self._position(p)
+        )
     # --------- End of exception block -----------
     
     def p_globvardecl(self, p):

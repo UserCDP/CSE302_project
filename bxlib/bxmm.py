@@ -74,7 +74,8 @@ class MM:
                 case ProcDecl(name, arguments, retty, body):
                     assert(self._proc is None)
                     with self._scope.in_subscope():
-                        arguments = list(it.chain(*(x[0] for x in arguments)))
+                        arguments = list((x[0] for x in arguments))
+                        # print("Args", arguments)
 
                         self._proc = TACProc(
                             name      = name.value,

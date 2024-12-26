@@ -170,24 +170,14 @@ class TryExceptStatement(Statement):
 # --------------------------------------------------------------------
 @dc.dataclass
 class CatchStatement(Statement):
-    """AST node representing a catch statement."""
     name: Name
     body: list[Statement]
 
 # --------------------------------------------------------------------
 @dc.dataclass
 class ExceptionDecl(TopDecl):
-    """AST node representing an exception declaration."""
     name: Name
-    # body: list[Statement]
     position: Opt[Range] = dc.field(kw_only = True, default = None)
-
-# --------------------------------------------------------------------
-@dc.dataclass
-class CatchClause(AST):
-    """AST node representing a catch clause."""
-    exception: Name
-    body: list[Statement]
 
 # --------------------------------------------------------------------
 Block   = list[Statement]

@@ -32,7 +32,7 @@ class PreTyper:
 
                     procs[name.value] = (
                         tuple(tp for _, tp in arguments),
-                        rettype
+                        rettype if rettype is not None else Type.VOID
                     )
 
                 case GlobVarDecl(name, init, type_):
@@ -258,11 +258,9 @@ class TypeChecker:
                     else:
                         self.for_expression(expr, etype=self.proc.rettype)
 
-            case RaiseStatement(exception):  # <-- CHANGED
-                # 1) Check it is declared
+            case RaiseStatement(exception):
                 if exception.value not in self.declared_exceptions:
                     self.report(f"Undeclared exception: {exception.value}", position=exception.position)
-                # 2) Optionally check if the current procedure declared it in `.raises`
                 if self.proc is not None:
                     allowed_exceptions = {n.value for n in self.proc.raises}
                     if exception.value not in allowed_exceptions:
@@ -273,26 +271,13 @@ class TypeChecker:
 
             case TryExceptStatement(body, catches):
                 self.for_block(body)
+                # print(catches)
 
-                for (excName, varName, catchBody) in catches:
-                    if excName.value not in self.declared_exceptions:
-                        self.report(f"Undeclared exception in handler: {excName.value}",
-                                    position=excName.position)
-                    with self.scope.in_subscope():
-                        if varName.value != "_":
-                            if self.check_local_free(varName):
-                                self.scope.push(varName.value, Type.VOID)
+                for catch in catches:
+                    self.for_statement(catch)
 
-                        for s in catchBody:
-                            self.for_statement(s)
-
-            case ProcDecl(name, arguments, retty, body):
-                # check main for return and arguments
-                if name.value == "main":
-                    if len(arguments) != 0:
-                        self.report('main should not take any argument')
-                    if retty is not None:
-                        self.report('main should not return any value')
+            case CatchStatement(name, body):
+                pass
 
             case _:
                 print(stmt)
@@ -300,6 +285,8 @@ class TypeChecker:
 
     def for_block(self, block : Block):
         with self.scope.in_subscope():
+            if type(block) is not list:
+                block = [block]
             for stmt in block:
                 self.for_statement(stmt)
 
@@ -319,6 +306,9 @@ class TypeChecker:
                                 'this function is missing a return statement',
                                 position = decl.position,
                             )
+            
+            case ExceptionDecl(name):
+                self.declared_exceptions.add(name.value)
 
             case GlobVarDecl(name, init, type_):
                 self.for_expression(init, etype = type_)
@@ -342,6 +332,7 @@ class TypeChecker:
                 return False
 
     def has_return(self, stmt: Statement):
+        print("Iteration statement ", stmt, '\n')
         match stmt:
             case ReturnStatement(_):
                 return True
@@ -361,19 +352,13 @@ class TypeChecker:
 
 
     def check(self, prgm: Program):
-        # First pass: gather declared exceptions
+        # print(prgm)
+
         for decl in prgm:
+            # print("decl ", decl)
             match decl:
-                case ExceptionDecl(name=name):
+                case ExceptionDecl(name):
                     self.declared_exceptions.add(name.value)
-
-                case _:
-                    pass
-
-        for decl in prgm:
-            match decl:
-                case ExceptionDecl(name=_):
-                    pass
 
                 case ProcDecl(name, arguments, rettype, body, raises):
                     with self.in_proc(decl):
@@ -383,7 +368,10 @@ class TypeChecker:
                             for vname in vnames:
                                 if self.check_local_free(vname):
                                     self.scope.push(vname.value, vtype_)
+                        # print("body ", body)
                         self.for_statement(body)
+
+                        # print(body)
 
                         if rettype is not None:
                             if not self.has_return(body):
