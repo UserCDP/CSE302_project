@@ -37,11 +37,6 @@ class Lexer:
         'BOOL', 
         'IDENT' ,               # : str
         'NUMBER',               # : int
-
-        # 'EXCEPTION',
-        # 'RAISE',
-        # 'TRY',
-        # 'EXCEPT',
         
         # Punctuation
         'LPAREN'   ,
@@ -77,11 +72,6 @@ class Lexer:
     
     t_INT = r'int'
     t_BOOL = r'bool'
-
-    t_EXCEPTION = r'exception'
-    t_RAISE = r'raise'
-    t_TRY = r'try'
-    t_EXCEPT = r'except'
 
     t_LPAREN    = re.escape('(')
     t_RPAREN    = re.escape(')')

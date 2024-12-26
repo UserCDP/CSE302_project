@@ -1,6 +1,6 @@
 exception DivByZero;
 
-def safe_div(x:int, y:int) : int raises DivByZero {
+def safe_div(x : int, y:int) : int raises DivByZero {
     if (y == 0) {
         raise DivByZero;
     }

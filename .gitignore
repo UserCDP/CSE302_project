@@ -171,4 +171,3 @@ cython_debug/
 .pypirc
 
 bxlib/__pycache__/
-__pycache__/

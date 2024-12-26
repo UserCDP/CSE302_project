@@ -183,6 +183,13 @@ class ExceptionDecl(TopDecl):
     position: Opt[Range] = dc.field(kw_only = True, default = None)
 
 # --------------------------------------------------------------------
+@dc.dataclass
+class CatchClause(AST):
+    """AST node representing a catch clause."""
+    exception: Name
+    body: list[Statement]
+
+# --------------------------------------------------------------------
 Block   = list[Statement]
 Program = list[TopDecl]
 

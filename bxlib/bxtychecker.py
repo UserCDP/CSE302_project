@@ -137,74 +137,72 @@ class TypeChecker:
             self.report(f'integer literal out of range: {value}')
             return False
         return True
-
-    def for_expression(self, expr : Expression, etype : tp.Optional[Type] = None):
+    
+    def for_expression(self, expr : Expression, etype : Opt[Type] = None):
         type_ = None
-
         match expr:
             case VarExpression(name):
                 if self.check_local_bound(name):
                     type_ = self.scope[name.value]
 
-            case BoolExpression(_):
+            case BoolExpression(value):
                 type_ = Type.BOOL
 
             case IntExpression(value):
                 self.check_integer_constant_range(value)
                 type_ = Type.INT
 
-            case OpAppExpression(opname, arguments):
-                opsig = self.SIGS[opname]
-                for atype, argument in zip(opsig[0], arguments):
-                    self.for_expression(argument, etype = atype)
-                type_ = opsig[1]
+            case OpAppExpression(operator, arguments):
+                if operator not in self.SIGS:
+                    self.report(f"Unknown operator {operator}")
+                else:
+                    opsig = self.SIGS[operator]
+                    # Check each argument
+                    for expected_t, argument_expr in zip(opsig[0], arguments):
+                        self.for_expression(argument_expr, etype=expected_t)
+                    type_ = opsig[1]
 
-            case CallExpression(name, arguments):
-                atypes, retty = [], None
-
-                if name.value not in self.procs:
+            case CallExpression(proc, arguments):
+                if proc.value not in self.procs:
                     self.report(
-                        f'unknown procedure: {name.value}',
-                        position = name.position,
+                        f'unknown procedure: {proc.value}',
+                        position = proc.position,
                     )
                 else:
-                    atypes, retty = self.procs[name.value]
-
-                    if len(atypes) != len(arguments):
+                    atypes, retty = self.procs[proc.value]
+                    if len(arguments) != len(atypes):
                         self.report(
-                            f'invalid number of arguments: expected {len(atypes)}, got {len(arguments)}',
+                            f'invalid number of arguments to {proc.value}: '
+                            f'expected {len(atypes)}, got {len(arguments)}',
                             position = expr.position,
                         )
+                    # Check each argument type
+                    for i, arg_expr in enumerate(arguments):
+                        expected_t = atypes[i] if i < len(atypes) else None
+                        self.for_expression(arg_expr, etype=expected_t)
+                    type_ = retty
 
-                for i, a in enumerate(arguments):
-                    self.for_expression(a, atypes[i] if i in range(len(atypes)) else None)
-
-                type_ = retty
-
-            case PrintExpression(e):
-                self.for_expression(e)
-
-                if e.type_ is not None:
-                    if e.type_ not in (Type.INT, Type.BOOL):
-                        self.report(
-                            f'can only print integers and booleans, not {e.type_}',
-                            position = e.position,
-                        )
-
+            case PrintExpression(argument):
+                self.for_expression(argument)
+                if argument.type_ is not None and argument.type_ not in (Type.INT, Type.BOOL):
+                    self.report(
+                        f'can only print int or bool, not {argument.type_}',
+                        position=argument.position
+                    )
                 type_ = Type.VOID
 
             case _:
-                print(expr)
-                assert(False)
+                self.report(f"Unsupported expression node: {expr}")
 
+        # Check if it must match a certain expected type
         if type_ is not None:
-            if etype is not None:
-                if type_ != etype:
-                    self.report(
-                        f'invalid type: get {type_}, expected {etype}',
-                        position = expr.position,
-                    )
+            if etype is not None and type_ != etype:
+                self.report(
+                    f'invalid type: got {type_}, expected {etype}',
+                    position=expr.position
+                )
 
+        # Store the computed type
         expr.type_ = type_
 
     def for_statement(self, stmt : Statement):
@@ -212,63 +210,71 @@ class TypeChecker:
             case VarDeclStatement(name, init, type_):
                 if self.check_local_free(name):
                     self.scope.push(name.value, type_)
-                self.for_expression(init, etype = type_)
+                self.for_expression(init, etype=type_)
 
             case AssignStatement(lhs, rhs):
                 lhstype = self.check_local_bound(lhs)
-                self.for_expression(rhs, etype = lhstype)
+                self.for_expression(rhs, etype=lhstype)
 
             case ExprStatement(expression):
                 self.for_expression(expression)
 
-            case BlockStatement(block):
-                self.for_block(block)
+            case BlockStatement(body):
+                self.for_block(body)
 
-            case IfStatement(condition, iftrue, iffalse):
-                self.for_expression(condition, etype = Type.BOOL)
-                self.for_statement(iftrue)
-                if iffalse is not None:
-                    self.for_statement(iffalse)
+            case IfStatement(condition, then, else_):
+                self.for_expression(condition, etype=Type.BOOL)
+                self.for_statement(then)
+                if else_ is not None:
+                    self.for_statement(else_)
 
             case WhileStatement(condition, body):
-                self.for_expression(condition, etype = Type.BOOL)
+                self.for_expression(condition, etype=Type.BOOL)
                 with self.in_loop():
                     self.for_statement(body)
 
             case BreakStatement() | ContinueStatement():
                 if self.loops == 0:
-                    self.report(
-                        'break/continue statement outside of a loop',
-                        position = stmt.position,
-                    )
+                    self.report('break/continue outside of any loop', position=stmt.position)
 
-            case ReturnStatement(e):
-                if e is None:
-                    if self.proc.rettype is not None:
-                        self.report(
-                            'value-less return statement in a function',
-                            position = stmt.position,
-                        )
+            case ReturnStatement(expr):
+                if expr is None:
+                    # must not return a value if the proc has a retty
+                    if self.proc and self.proc.rettype is not None:
+                        self.report('value-less return in a function')
                 else:
-                    if self.proc.rettype is None:
-                        self.report(
-                            'return statement in a subroutine',
-                            position = stmt.position,
-                        )
+                    if self.proc and self.proc.rettype is None:
+                        self.report('returning a value in a subroutine')
                     else:
-                        self.for_expression(e, etype = self.proc.rettype)
+                        self.for_expression(expr, etype=self.proc.rettype)
 
-            case RaiseStatement(exception):
+            case RaiseStatement(exception):  # <-- CHANGED
+                # 1) Check it is declared
                 if exception.value not in self.declared_exceptions:
-                    self.report(f"Undeclared exception: {exception.value}")
+                    self.report(f"Undeclared exception: {exception.value}", position=exception.position)
+                # 2) Optionally check if the current procedure declared it in `.raises`
+                if self.proc is not None:
+                    allowed_exceptions = {n.value for n in self.proc.raises}
+                    if exception.value not in allowed_exceptions:
+                        self.report(
+                            f"{self.proc.name.value} does not declare it raises {exception.value}",
+                            position=exception.position
+                        )
 
-            case TryExceptStatement(try_block, exceptions):
-                self.for_block(try_block)
-                for exc, handler in exceptions:
-                    if exc.value not in self.declared_exceptions:
-                        self.report(f"Undeclared exception in handler: {exc.value}")
-                    self.for_block(handler)
+            case TryExceptStatement(body, catches):
+                self.for_block(body)
 
+                for (excName, varName, catchBody) in catches:
+                    if excName.value not in self.declared_exceptions:
+                        self.report(f"Undeclared exception in handler: {excName.value}",
+                                    position=excName.position)
+                    with self.scope.in_subscope():
+                        if varName.value != "_":
+                            if self.check_local_free(varName):
+                                self.scope.push(varName.value, Type.VOID)
+
+                        for s in catchBody:
+                            self.for_statement(s)
             case _:
                 print(stmt)
                 assert(False)
@@ -336,40 +342,41 @@ class TypeChecker:
 
 
     def check(self, prgm: Program):
-    # First, process the declarations (like variables, functions, exceptions)
+        # First pass: gather declared exceptions
         for decl in prgm:
             match decl:
-                case ExceptionDecl(name):
-                    self.for_exception_decl(decl)
-                case ProcDecl(name, arguments, retty, body, raises):
-                    self.for_proc_decl(decl)
-                case GlobVarDecl(name, init, type_):
-                # Handle global variable declarations as usual
-                    self.for_expression(init, etype=type_)
-                case _:
-                    self.report(f"Unknown top-level declaration: {decl}", decl.position)
+                case ExceptionDecl(name=name):
+                    self.declared_exceptions.add(name.value)
 
-    # Now, check if all expressions and statements are valid
-        for decl in prgm:
-            match decl:
-                case ProcDecl(name, arguments, retty, body, raises):
-                    with self.in_proc(decl):
-                    # Process procedure statements (check for expressions inside)
-                        self.for_block(body)
-                case BlockStatement(body):
-                    self.for_block(body)
-
-    # After checking all statements, ensure that exception declarations are valid
-    # Check for raise statements in procedures
-        for decl in prgm:
-            match decl:
-                case RaiseStatement(exception):
-                    if exception.value not in self.declared_exceptions:
-                        self.report(f"Undeclared exception: {exception.value}")
                 case _:
                     pass
 
-    # Check the program and report errors if any
+        for decl in prgm:
+            match decl:
+                case ExceptionDecl(name=_):
+                    pass
+
+                case ProcDecl(name, arguments, rettype, body, raises):
+                    for excName in raises:
+                        if excName.value not in self.declared_exceptions:
+                            self.report(f"Procedure {name.value} declares raises unknown exception {excName.value}",
+                                        position=excName.position)
+
+                    with self.in_proc(decl):
+                        for (names_list, param_t) in arguments:
+                            for n in names_list:
+                                if self.check_local_free(n):
+                                    self.scope.push(n.value, param_t)
+
+                        self.for_statement(body)
+
+                case GlobVarDecl(name, init, type_):
+                    self.for_expression(init, etype=type_)
+
+                case _:
+                    self.report(f"Unknown top-level declaration: {decl}")
+
+        # End of check
         self.reporter.checkpoint()
 
 
