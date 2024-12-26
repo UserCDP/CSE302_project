@@ -1,6 +1,6 @@
 # --------------------------------------------------------------------
 import contextlib as cl
-import itertools as it
+import hashlib
 
 from typing import Optional as Opt
 
@@ -42,6 +42,10 @@ class MM:
     def fresh_label(cls):
         cls._counter += 1
         return f'.L{cls._counter}'
+    
+    @staticmethod
+    def exception_code(name: str) -> int:
+        return int(hashlib.sha256(name.encode()).hexdigest(), 16) & 0xFFFFFFFF
 
     def push(
         self,
@@ -104,6 +108,8 @@ class MM:
 
     def for_block(self, block: Block):
         with self._scope.in_subscope():
+            if type(block) is not list:
+                block = [block]
             for stmt in block:
                 self.for_statement(stmt)
 
@@ -165,28 +171,30 @@ class MM:
                     self.push('ret', temp)
 
             case RaiseStatement(exception):
-                self.push('copy', exception.value, result='@exception')
+                exc_code = self.exception_code(exception.value)
+                # print("Exception code", exc_code)
+                self.push('copy', '$'+str(exc_code), result='@exception')
                 if self._try_blocks:
                     self.push('jmp', self._try_blocks[-1][0])
                 else:
                     self.push('ret')
 
-            case TryExceptStatement(try_block, exceptions):
+            case TryExceptStatement(body, catches):
                 handler_label = self.fresh_label()
                 end_label = self.fresh_label()
 
                 with self.in_try_block(handler_label, end_label):
-                    self.push_label(handler_label)
-                    self.for_block(try_block)
+                    self.for_block(body)
                     self.push('jmp', end_label)
 
                 self.push_label(handler_label)
-                for exc, handler in exceptions:
+                for catch in catches:
                     exc_label = self.fresh_label()
-                    self.push('cmp', '@exception', exc.value)
+                    exc_code = self.exception_code(catch.name.value)
+                    self.push('cmpq', '@exception', exc_code)
                     self.push('jne', exc_label)
                     self.push('copy', 0, result='@exception')
-                    self.for_block(handler)
+                    self.for_block(catch.body)
                     self.push('jmp', end_label)
                     self.push_label(exc_label)
 
@@ -216,7 +224,7 @@ class MM:
 
                 case IntExpression(value):
                     target = self.fresh_temporary()
-                    self.push('const', value, result = target)
+                    self.push('const', value, result=target)
 
                 case OpAppExpression(operator, arguments):
                     target    = self.fresh_temporary()
@@ -234,6 +242,7 @@ class MM:
                     self.push('jne', self._try_blocks[-1][0] if self._try_blocks else 'ret')
 
                 case PrintExpression(argument):
+                    # print(argument)
                     temp = self.for_expression(argument)
                     self.push('param', 1, temp)
                     proc = self.PRINTS[argument.type_]
@@ -307,17 +316,3 @@ class MM:
 
             case _:
                 assert(False)
-
-    def for_statement(self, stmt: Statement):
-        if isinstance(stmt, RaiseStmt):
-            self.push('move', f'${stmt.exception}', '@exception')
-        elif isinstance(stmt, TryExceptStmt):
-            self.push('label', f'@try_{stmt.lineno}')
-            self.push('block', stmt.block)  # Process try block
-            self.push('label', f'@catch_{stmt.lineno}')
-            self.push('compare', '@exception', f'{stmt.exception}')  # Compare the raised exception
-            self.push('jump', f'@handler_{stmt.lineno}')  # Jump to handler
-
-    def push(self, opcode, *arguments):
-        # Push the instruction to TAC
-        self._tac.append(TAC(opcode, list(arguments)))

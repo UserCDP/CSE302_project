@@ -61,6 +61,7 @@ class BoolExpression(Expression):
 @dc.dataclass
 class IntExpression(Expression):
     value: int
+    type_: Opt[Type] = dc.field(kw_only = True, default = Type.INT)
 
 # --------------------------------------------------------------------
 @dc.dataclass

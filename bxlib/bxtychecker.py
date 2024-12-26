@@ -415,7 +415,7 @@ class TypeChecker:
                     self.report(f"Unknown top-level declaration: {decl}")
 
         # End of check
-        print(self.declared_exceptions)
+        # print(self.declared_exceptions)
         self.reporter.checkpoint()
 
 
