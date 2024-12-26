@@ -24,6 +24,7 @@ class MM:
         self._tac     = []
         self._scope   = Scope()
         self._loops   = []
+        self._try_blocks = []
 
     tac = property(lambda self: self._tac)
 
@@ -60,6 +61,14 @@ class MM:
             yield
         finally:
             self._loops.pop()
+
+    @cl.contextmanager
+    def in_try_block(self, handler_label: str, end_label: str):
+        self._try_blocks.append((handler_label, end_label))
+        try:
+            yield
+        finally:
+            self._try_blocks.pop()
 
     def for_program(self, prgm: Program):
         for decl in prgm:
@@ -156,18 +165,31 @@ class MM:
                     self.push('ret', temp)
 
             case RaiseStatement(exception):
-                self.push('raise', exception.value)
+                self.push('copy', exception.value, result='@exception')
+                if self._try_blocks:
+                    self.push('jmp', self._try_blocks[-1][0])
+                else:
+                    self.push('ret')
 
             case TryExceptStatement(try_block, exceptions):
-                start_label = self.fresh_label()
+                handler_label = self.fresh_label()
                 end_label = self.fresh_label()
-                self.push_label(start_label)
-                self.for_block(try_block)
-                self.push('jmp', end_label)
+
+                with self.in_try_block(handler_label, end_label):
+                    self.push_label(handler_label)
+                    self.for_block(try_block)
+                    self.push('jmp', end_label)
+
+                self.push_label(handler_label)
                 for exc, handler in exceptions:
                     exc_label = self.fresh_label()
-                    self.push_label(exc_label)
+                    self.push('cmp', '@exception', exc.value)
+                    self.push('jne', exc_label)
+                    self.push('copy', 0, result='@exception')
                     self.for_block(handler)
+                    self.push('jmp', end_label)
+                    self.push_label(exc_label)
+
                 self.push_label(end_label)
 
             case _:
@@ -208,6 +230,8 @@ class MM:
                     if expr.type_ != Type.VOID:
                         target = self.fresh_temporary()
                     self.push('call', proc.value, len(arguments), result = target)
+                    self.push('cmp', '@exception', 0)
+                    self.push('jne', self._try_blocks[-1][0] if self._try_blocks else 'ret')
 
                 case PrintExpression(argument):
                     temp = self.for_expression(argument)

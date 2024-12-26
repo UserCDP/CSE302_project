@@ -32,7 +32,8 @@ class PreTyper:
 
                     procs[name.value] = (
                         tuple(tp for _, tp in arguments),
-                        rettype if rettype is not None else Type.VOID
+                        rettype if rettype is not None else Type.VOID,
+                        raises
                     )
 
                 case GlobVarDecl(name, init, type_):
@@ -58,12 +59,19 @@ class PreTyper:
                 case _:
                     assert(False)
 
+        # print(procs['main'][0:2])
         if 'main' not in procs:
             self.reporter('this program is missing a main subroutine')
-        elif procs['main'] != ((), Type.VOID):
-            self.reporter(
-                '"main" should not take any argument and should not return any value'
-            )
+        else:
+            if procs['main'][0:2] != ((), Type.VOID):
+                self.reporter(
+                    '"main" should not take any argument and should not return any value'
+                )
+            # check if main raises any exception
+            if procs['main'][2]:
+                self.reporter(
+                    '"main" should not raise any exception'
+                )
 
         return scope, procs
 
@@ -179,7 +187,7 @@ class TypeChecker:
                         position = proc.position,
                     )
                 else:
-                    atypes, retty = self.procs[proc.value]
+                    atypes, retty, raises = self.procs[proc.value]
                     if len(arguments) != len(atypes):
                         self.report(
                             f'invalid number of arguments to {proc.value}: '
@@ -332,7 +340,7 @@ class TypeChecker:
                 return False
 
     def has_return(self, stmt: Statement):
-        print("Iteration statement ", stmt, '\n')
+        # print("Iteration statement ", stmt, '\n')
         match stmt:
             case ReturnStatement(_):
                 return True
@@ -340,13 +348,33 @@ class TypeChecker:
             case IfStatement(_, iftrue, iffalse):
                 return \
                     self.has_return(iftrue) and \
-                    self.has_return(iffalse)
+                    self.has_return(iffalse) or \
+                    (self.has_return(iftrue) and self.has_raise(iffalse)) or \
+                    (self.has_raise(iftrue) and self.has_return(iffalse)) or \
+                    (self.has_raise(iftrue) and self.has_raise(iffalse))
 
             case BlockStatement(block):
                 return any(self.has_return(b) for b in block)
 
             case _:
                 return False
+            
+    def has_raise(self, stmt: Statement):
+        match stmt:
+            case RaiseStatement(_):
+                return True
+
+            case IfStatement(_, iftrue, iffalse):
+                return \
+                    self.has_raise(iftrue) and \
+                    self.has_raise(iffalse)
+
+            case BlockStatement(block):
+                return any(self.has_raise(b) for b in block)
+
+            case _:
+                return False
+
     def report(self, msg: str, position: Opt[Range] = None):
         self.reporter(msg, position=position)
 
@@ -387,6 +415,7 @@ class TypeChecker:
                     self.report(f"Unknown top-level declaration: {decl}")
 
         # End of check
+        print(self.declared_exceptions)
         self.reporter.checkpoint()
 
 

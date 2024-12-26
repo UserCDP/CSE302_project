@@ -19,8 +19,6 @@ OPCODES = {
     'bitwise-xor'         : 'xor',
     'logical-left-shift'  : 'shl',
     'logical-right-shift' : 'shr',
-    "set_exception": "set_exception",
-    "handle_exception": "handle_exception",
 }
 
 # --------------------------------------------------------------------
@@ -29,6 +27,7 @@ class TAC:
     opcode    : str
     arguments : list[str | int]
     result    : Opt[str | int] = None
+    exception : Opt[str] = None
 
     def tojson(self):
         return dict(
