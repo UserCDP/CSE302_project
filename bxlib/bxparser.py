@@ -87,7 +87,6 @@ class Parser:
     def p_type_(self, p):
         """type_ : INT
                 | BOOL"""
-        print("Type", p[1])
         if p[1] == 'int':
             p[0] = Type.INT
         elif p[1] == 'bool':
@@ -313,7 +312,6 @@ class Parser:
 
     def p_procdecl(self, p):
         """procdecl : DEF name LPAREN args RPAREN rty procdeclraises sblock"""
-        print("ProcDecl ", p[4])
         p[0] = ProcDecl(
             name       = p[2],
             arguments  = p[4],
@@ -334,7 +332,10 @@ class Parser:
 
     def p_stmt_raise(self, p):
         """stmt : RAISE name SEMICOLON """
-        p[0] = RaiseStatement(name = p[2], position = self._position(p))
+        p[0] = RaiseStatement(
+            exception = p[2], 
+            position = self._position(p)
+        )
         
     def p_stmt_tryexcept(self, p):
         """stmt : TRY sblock catch catches """
@@ -373,7 +374,6 @@ class Parser:
     
     def p_globvardecl(self, p):
         """globvardecl : VAR name EQ expr COLON type_ SEMICOLON"""
-        print("GlobalVarDecl", p[2])
         p[0] = GlobVarDecl(
             name     = p[2],
             init     = p[4],
@@ -386,7 +386,6 @@ class Parser:
         """topdecl : procdecl
                    | globvardecl
                    | exception"""
-        # print("TopDecl", p[1].name)
         p[0] = p[1]
 
     def p_program(self, p):
@@ -399,7 +398,6 @@ class Parser:
             p[0].append(p[2])
 
     def p_error(self, p):
-        print("Error", p)
         if p:
             position = Range.of_position(
                 p.lineno,

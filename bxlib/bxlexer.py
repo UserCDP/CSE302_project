@@ -28,13 +28,13 @@ class Lexer:
             'raise',
             'try',
             'except',
-            'raises'
+            'raises',
+            'bool',
+            'int',
         )
     }
     
     tokens = (
-        'INT',
-        'BOOL', 
         'IDENT' ,               # : str
         'NUMBER',               # : int
         
@@ -70,8 +70,8 @@ class Lexer:
         'TILD'     ,
     ) + tuple(keywords.values())
     
-    t_INT = r'int'
-    t_BOOL = r'bool'
+    # t_INT = r'int'
+    # t_BOOL = r'bool'
 
     t_LPAREN    = re.escape('(')
     t_RPAREN    = re.escape(')')

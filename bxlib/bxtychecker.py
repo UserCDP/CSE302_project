@@ -22,7 +22,7 @@ class PreTyper:
 
         for topdecl in prgm:
             match topdecl:
-                case ProcDecl(name, arguments, rettype, body):
+                case ProcDecl(name, arguments, rettype, body, raises):
                     if name.value in procs:
                         self.reporter(
                             f'duplicated procedure name: {name.value}',
@@ -31,8 +31,8 @@ class PreTyper:
                         continue
 
                     procs[name.value] = (
-                        tuple(it.chain(*((x[1],) * len(x[0]) for x in arguments))),
-                        Type.VOID if rettype is None else rettype
+                        tuple(tp for _, tp in arguments),
+                        rettype
                     )
 
                 case GlobVarDecl(name, init, type_):
@@ -44,6 +44,16 @@ class PreTyper:
                         continue
 
                     scope.push(name.value, type_)
+
+                case ExceptionDecl(name):
+                    if name.value in scope:
+                        self.reporter(
+                            f'duplicated exception name: {name.value}',
+                            position = name.position
+                        )
+                        continue
+
+                    scope.push(name.value, Type.VOID)
 
                 case _:
                     assert(False)
@@ -275,6 +285,15 @@ class TypeChecker:
 
                         for s in catchBody:
                             self.for_statement(s)
+
+            case ProcDecl(name, arguments, retty, body):
+                # check main for return and arguments
+                if name.value == "main":
+                    if len(arguments) != 0:
+                        self.report('main should not take any argument')
+                    if retty is not None:
+                        self.report('main should not return any value')
+
             case _:
                 print(stmt)
                 assert(False)
@@ -357,18 +376,21 @@ class TypeChecker:
                     pass
 
                 case ProcDecl(name, arguments, rettype, body, raises):
-                    for excName in raises:
-                        if excName.value not in self.declared_exceptions:
-                            self.report(f"Procedure {name.value} declares raises unknown exception {excName.value}",
-                                        position=excName.position)
-
                     with self.in_proc(decl):
-                        for (names_list, param_t) in arguments:
-                            for n in names_list:
-                                if self.check_local_free(n):
-                                    self.scope.push(n.value, param_t)
-
+                        for vnames, vtype_ in arguments:
+                            if type(vnames) is not list:
+                                vnames = [vnames]
+                            for vname in vnames:
+                                if self.check_local_free(vname):
+                                    self.scope.push(vname.value, vtype_)
                         self.for_statement(body)
+
+                        if rettype is not None:
+                            if not self.has_return(body):
+                                self.report(
+                                    'this function is missing a return statement',
+                                    position=decl.position,
+                                )
 
                 case GlobVarDecl(name, init, type_):
                     self.for_expression(init, etype=type_)
