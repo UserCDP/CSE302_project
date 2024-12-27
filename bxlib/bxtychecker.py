@@ -536,9 +536,8 @@ class TypeChecker:
                 flag = 1
         if not flag:
             self.report(
-                "Some function raises an exception but is not in a try-except block"
+                "¯\_(ツ)_/¯Some function raises an exception but is not in a try-except block. This is not allowed >:("
             )
-
 
         # End of check
         # print(self.declared_exceptions)
