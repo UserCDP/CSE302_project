@@ -36,7 +36,7 @@ class PreTyper:
                     if len(raise_values) != len(set(raise_values)):
                         self.reporter(
                             f'duplicated exception in raises: {name.value}',
-                            position = name.position
+                            position = raises[0].position
                         )
                         continue
 
@@ -216,20 +216,21 @@ class TypeChecker:
 
                     # if it's a procedure that raises make sure it's inside a try-except block
                     # print(proc)
-                    if raises:
-                        # print(len(self.try_except_block))
+
+                    # if the last function in the raise stack is called add the current function
+                    # print(self.raise_stack)
+                    if self.raise_stack:
                         if self.proc is None or self.proc.name.value == 'main':
                             if len(self.try_except_block) == 0:
                                 self.report(
                                     f"Procedure {proc.value} raises an exception but is not inside a try-except block",
                                     position=expr.position
                                 )
-                    # if the last function in the raise stack is called add the current function
-                    if self.raise_stack:
                         if self.raise_stack[-1][0] == proc.value:
-                            self.raise_stack.append((self.proc.name.value, 1 if self.try_except_block else 0))
-
-                    # print(self.raise_stack)
+                            if self.try_except_block:
+                                self.raise_stack = []
+                            else:
+                                self.raise_stack.append(self.proc.name.value)
 
             case PrintExpression(argument):
                 self.for_expression(argument)
@@ -332,7 +333,9 @@ class TypeChecker:
                             position=exception.position
                         )
                     # also add to the raise stack
-                    self.raise_stack.append((self.proc.name.value, 1 if self.try_except_block else 0))
+                    if len(self.try_except_block) == 0:
+                        # print(self.proc.name.value)
+                        self.raise_stack.append(self.proc.name.value)
 
                 self.try_block_except.append(exception.value)
 
@@ -369,13 +372,13 @@ class TypeChecker:
             case CatchStatement(name, body):
                 if name.value not in self.declared_exceptions:
                     self.report(
-                        f"{name} is not declared as an exception",
+                        f"{name.value} is not declared as an exception",
                         position=body.position
                     )
                 self.for_statement(body)
                 if name.value not in self.try_block_except:
                     self.report(
-                        f"{name} is unreachable",
+                        f"{name.value} is unreachable",
                         position=body.position
                     )
 
@@ -519,8 +522,6 @@ class TypeChecker:
                         # print(decl)
                         self.exception_scopes.append(decl)
 
-                    # print(self.raise_stack)
-
                 case GlobVarDecl(name, init, type_):
                     self.for_expression(init, etype=type_)
 
@@ -529,15 +530,15 @@ class TypeChecker:
 
         # if every element in the raise stack has the second argument as 0 raise an error
         # print(self.proc)
-        flag = 0
-        for r in self.raise_stack:
-            # print(r)
-            if r[1] == 1:
-                flag = 1
-        if not flag:
-            self.report(
-                "¯\_(ツ)_/¯Some function raises an exception but is not in a try-except block. This is not allowed >:("
-            )
+        # flag = 0
+        # for r in self.raise_stack:
+        #     # print(r)
+        #     if r[1] == 1:
+        #         flag = 1
+        # if not flag:
+        #     self.report(
+        #         "¯\_(ツ)_/¯Some function raises an exception but is not in a try-except block. This is not allowed >:("
+        #     )
 
         # End of check
         # print(self.declared_exceptions)
