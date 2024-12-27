@@ -124,6 +124,7 @@ class TypeChecker:
         self.try_except_block       = []
         self.exception_scopes       = []
         self.raise_stack            = []   # stack to keep track of the function-chain that raises an exception
+        self.try_block_except       = []   # stack to keep track of the try-except block
 
     def report(self, msg: str, position: Opt[Range] = None):
         self.reporter(msg, position = position)
@@ -333,6 +334,8 @@ class TypeChecker:
                     # also add to the raise stack
                     self.raise_stack.append((self.proc.name.value, 1 if self.try_except_block else 0))
 
+                self.try_block_except.append(exception.value)
+
             case TryExceptStatement(try_, catches):
                 # print(try_)
                 self.try_except_block.append(try_)
@@ -363,11 +366,16 @@ class TypeChecker:
                                 )
 
                 self.try_except_block.pop()
-
             case CatchStatement(name, body):
                 if name.value not in self.declared_exceptions:
                     self.report(
                         f"{name} is not declared as an exception",
+                        position=body.position
+                    )
+                self.for_statement(body)
+                if name.value not in self.try_block_except:
+                    self.report(
+                        f"{name} is unreachable",
                         position=body.position
                     )
 
@@ -511,7 +519,7 @@ class TypeChecker:
                         # print(decl)
                         self.exception_scopes.append(decl)
 
-                    print(self.raise_stack)
+                    # print(self.raise_stack)
 
                 case GlobVarDecl(name, init, type_):
                     self.for_expression(init, etype=type_)
