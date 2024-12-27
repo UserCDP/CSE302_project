@@ -171,3 +171,10 @@ cython_debug/
 .pypirc
 
 bxlib/__pycache__/
+tests/test_negative/*.o
+tests/test_negative/*.s
+tests/test_negative/*.exe
+
+tests/test_positive/*.o
+tests/test_positive/*.s
+tests/test_positive/*.exe
