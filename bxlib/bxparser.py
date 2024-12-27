@@ -343,7 +343,7 @@ class Parser:
         for c in p[4]:
             catch_list.append(c)
         p[0] = TryExceptStatement(
-            body = p[2],
+            try_ = p[2],
             catches = catch_list,
             position = self._position(p)
         )

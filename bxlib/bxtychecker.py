@@ -121,6 +121,7 @@ class TypeChecker:
         self.proc     = None
         self.reporter = reporter
         self.declared_exceptions = set()
+        self.try_except_block = []
 
     def report(self, msg: str, position: Opt[Range] = None):
         self.reporter(msg, position = position)
@@ -277,22 +278,43 @@ class TypeChecker:
                         self.for_expression(expr, etype=self.proc.rettype)
 
             case RaiseStatement(exception):
+                # print(exception)
                 if exception.value not in self.declared_exceptions:
                     self.report(f"Undeclared exception: {exception.value}", position=exception.position)
-                if self.proc is not None:
-                    allowed_exceptions = {n.value for n in self.proc.raises}
-                    if exception.value not in allowed_exceptions:
-                        self.report(
-                            f"{self.proc.name.value} does not declare it raises {exception.value}",
-                            position=exception.position
-                        )
+                
+                if len(self.try_except_block) > 0:
+                    if exception in self.try_except_block[-1].body:
+                        if self.proc is not None:
+                            allowed_exceptions = {n.value for n in self.proc.raises}
+                            if exception.value not in allowed_exceptions:
+                                self.report(
+                                    f"{self.proc.name.value} does not declare it raises {exception.value}",
+                                    position=exception.position
+                                )
+                    self.try_except_block.pop()
+                else:
+                    if self.proc is not None:
+                        allowed_exceptions = {n.value for n in self.proc.raises}
+                        if exception.value not in allowed_exceptions:
+                            self.report(
+                                f"{self.proc.name.value} does not declare it raises {exception.value}",
+                                position=exception.position
+                            )
 
-            case TryExceptStatement(body, catches):
+            case TryExceptStatement(try_, catches):
+                # print(try_)
+                self.try_except_block.append(try_)
+                self.for_block(try_)
                 # print(catches)
-                self.for_block(body)
-                # print(catches)
-
+                seen_exceptions = set()
                 for catch in catches:
+                    if catch.exception.value in seen_exceptions:
+                        self.report(
+                            f"Duplicate catch for exception: {catch.exception.value}",
+                            position=catch.position
+                        )
+                    else:
+                        seen_exceptions.add(catch.exception.value)
                     self.for_statement(catch)
 
             case CatchStatement(name, body):

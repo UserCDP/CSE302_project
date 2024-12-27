@@ -165,7 +165,7 @@ class RaiseStatement(Statement):
 @dc.dataclass
 class TryExceptStatement(Statement):
     """AST node representing a try-except statement."""
-    body: list[Statement]
+    try_: list[Statement]
     catches: list[tuple[Name, Name, list[Statement]]]
 
 # --------------------------------------------------------------------
