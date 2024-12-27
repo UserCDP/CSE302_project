@@ -115,13 +115,15 @@ class TypeChecker:
     }
 
     def __init__(self, scope : Scope, procs : ProcSigMap, reporter : Reporter):
-        self.scope    = scope
-        self.procs    = procs
-        self.loops    = 0
-        self.proc     = None
-        self.reporter = reporter
-        self.declared_exceptions = set()
-        self.try_except_block = []
+        self.scope                  = scope
+        self.procs                  = procs
+        self.loops                  = 0
+        self.proc                   = None
+        self.reporter               = reporter
+        self.declared_exceptions    = set()
+        self.try_except_block       = []
+        self.exception_scopes       = []
+        self.raise_stack            = []   # stack to keep track of the function-chain that raises an exception
 
     def report(self, msg: str, position: Opt[Range] = None):
         self.reporter(msg, position = position)
@@ -211,6 +213,23 @@ class TypeChecker:
                         self.for_expression(arg_expr, etype=expected_t)
                     type_ = retty
 
+                    # if it's a procedure that raises make sure it's inside a try-except block
+                    # print(proc)
+                    if raises:
+                        # print(len(self.try_except_block))
+                        if self.proc is None or self.proc.name.value == 'main':
+                            if len(self.try_except_block) == 0:
+                                self.report(
+                                    f"Procedure {proc.value} raises an exception but is not inside a try-except block",
+                                    position=expr.position
+                                )
+                    # if the last function in the raise stack is called add the current function
+                    if self.raise_stack:
+                        if self.raise_stack[-1][0] == proc.value:
+                            self.raise_stack.append((self.proc.name.value, 1 if self.try_except_block else 0))
+
+                    # print(self.raise_stack)
+
             case PrintExpression(argument):
                 self.for_expression(argument)
                 if argument.type_ is not None and argument.type_ not in (Type.INT, Type.BOOL):
@@ -277,6 +296,15 @@ class TypeChecker:
                     else:
                         self.for_expression(expr, etype=self.proc.rettype)
 
+                # in case I am returning a function that raises an exception
+                # ceck if we are in a try-except block
+                # yet, we again allow a free float if somewhere down the line there is a try-except block
+                # if type(expr) is CallExpression:
+                #     # check that the called function raises an exception
+                #     _, _, raises = self.procs[expr.proc.value]
+                #     if raises:
+
+
             case RaiseStatement(exception):
                 # print(exception)
                 if exception.value not in self.declared_exceptions:
@@ -291,21 +319,26 @@ class TypeChecker:
                                     f"{self.proc.name.value} does not declare it raises {exception.value}",
                                     position=exception.position
                                 )
-                    self.try_except_block.pop()
-                else:
-                    if self.proc is not None:
-                        allowed_exceptions = {n.value for n in self.proc.raises}
-                        if exception.value not in allowed_exceptions:
-                            self.report(
-                                f"{self.proc.name.value} does not declare it raises {exception.value}",
-                                position=exception.position
-                            )
+
+                # if a raise statement is encountered in a function check if it is in a try-except block
+                # we don't judge any function that floats this freely with the condition that when it is
+                # called that is done in a try-except block
+                if self.proc is not None:
+                    allowed_exceptions = {n.value for n in self.proc.raises}
+                    if (exception.value not in allowed_exceptions) and (len(self.try_except_block) == 0):
+                        self.report(
+                            f"{self.proc.name.value} does not declare it raises {exception.value}",
+                            position=exception.position
+                        )
+                    # also add to the raise stack
+                    self.raise_stack.append((self.proc.name.value, 1 if self.try_except_block else 0))
 
             case TryExceptStatement(try_, catches):
                 # print(try_)
                 self.try_except_block.append(try_)
                 self.for_block(try_)
-                # print(catches)
+                # self.try_except_block.pop()
+
                 seen_exceptions = set()
                 for catch in catches:
                     if catch.exception.value in seen_exceptions:
@@ -316,6 +349,20 @@ class TypeChecker:
                     else:
                         seen_exceptions.add(catch.exception.value)
                     self.for_statement(catch)
+
+                    # when we see a function call inside a try-except block we go throught the call-chain
+                    # to see if the function raises an exception
+                    if type(catch.body) is CallExpression:
+                        _, _, raises = self.procs[catch.body.proc.value]
+                        if raises:
+                            allowed_exceptions = {n.value for n in raises}
+                            if catch.exception.value not in allowed_exceptions:
+                                self.report(
+                                    f"{catch.body.proc.value} does not declare it raises {catch.exception.value}",
+                                    position=catch.position
+                                )
+
+                self.try_except_block.pop()
 
             case CatchStatement(name, body):
                 if name.value not in self.declared_exceptions:
@@ -337,7 +384,7 @@ class TypeChecker:
 
     def for_topdecl(self, decl : TopDecl):
         match decl:
-            case ProcDecl(name, arguments, retty, body):
+            case ProcDecl(name, arguments, retty, body, raises):
                 with self.in_proc(decl):
                     for vnames, vtype_ in arguments:
                         for vname in vnames:
@@ -443,7 +490,14 @@ class TypeChecker:
                         # print("body ", body)
                         self.for_statement(body)
 
-                        # print(body)
+                    # check that the raises are declared
+                    # print(raises)
+                    for r in raises:
+                        if r.value not in self.declared_exceptions:
+                            self.report(
+                                f"Undeclared exception: {r.value}",
+                                position=r.position
+                            )
 
                         if rettype is not None:
                             if not self.has_return(body):
@@ -452,11 +506,31 @@ class TypeChecker:
                                     position=decl.position,
                                 )
 
+                    # if it has raies add it to exception scopes
+                    if raises:
+                        # print(decl)
+                        self.exception_scopes.append(decl)
+
+                    print(self.raise_stack)
+
                 case GlobVarDecl(name, init, type_):
                     self.for_expression(init, etype=type_)
 
                 case _:
                     self.report(f"Unknown top-level declaration: {decl}")
+
+        # if every element in the raise stack has the second argument as 0 raise an error
+        # print(self.proc)
+        flag = 0
+        for r in self.raise_stack:
+            # print(r)
+            if r[1] == 1:
+                flag = 1
+        if not flag:
+            self.report(
+                "Some function raises an exception but is not in a try-except block"
+            )
+
 
         # End of check
         # print(self.declared_exceptions)
