@@ -361,7 +361,7 @@ class Parser:
     
     def p_catch(self, p):
         """catch : EXCEPT name sblock"""
-        p[0] = CatchStatement(name = p[2], body = p[3], position = self._position(p))
+        p[0] = CatchStatement(exception = p[2], body = p[3], position = self._position(p))
 
     def p_raise_list(self, p):
         """raise_list : name 

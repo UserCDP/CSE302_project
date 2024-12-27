@@ -171,7 +171,7 @@ class TryExceptStatement(Statement):
 # --------------------------------------------------------------------
 @dc.dataclass
 class CatchStatement(Statement):
-    name: Name
+    exception: Name
     body: list[Statement]
 
 # --------------------------------------------------------------------

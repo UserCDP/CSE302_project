@@ -45,7 +45,10 @@ class MM:
     
     @staticmethod
     def exception_code(name: str) -> int:
-        return int(hashlib.sha256(name.encode()).hexdigest(), 16) & 0xFFFFFFFF
+        value = int(hashlib.sha256(name.encode()).hexdigest(), 16) & 0xFFFFFFFF
+        if value > 0x7FFFFFFF:
+            value -= 0x100000000
+        return value
 
     def push(
         self,
@@ -73,6 +76,13 @@ class MM:
             yield
         finally:
             self._try_blocks.pop()
+
+    def set_exception(self, exception: str):
+        if self._try_blocks:
+            self.push('const', self.exception_code(exception.value), result = '@exception')
+            self.push('jmp', self._try_blocks[-1][0])
+        else:
+            self.push('const', self.exception_code(exception.value), result = '@exception')
 
     def for_program(self, prgm: Program):
         for decl in prgm:
@@ -171,34 +181,50 @@ class MM:
                     self.push('ret', temp)
 
             case RaiseStatement(exception):
-                exc_code = self.exception_code(exception.value)
-                # print("Exception code", exc_code)
-                self.push('copy', '$'+str(exc_code), result='@exception')
+                self.set_exception(exception)
                 if self._try_blocks:
-                    self.push('jmp', self._try_blocks[-1][0])
+                    self.push('jnz', '@exception', self._try_blocks[-1][0])
                 else:
+                    label = self.fresh_label()
+                    self.push('jz', '@exception', label)
                     self.push('ret')
+                    self.push_label(label)
+
 
             case TryExceptStatement(body, catches):
                 handler_label = self.fresh_label()
-                end_label = self.fresh_label()
+                next_label = self.fresh_label()
 
-                with self.in_try_block(handler_label, end_label):
-                    self.for_block(body)
-                    self.push('jmp', end_label)
+                self._try_blocks.append((handler_label, next_label))
 
+                self.for_statement(body)
                 self.push_label(handler_label)
-                for catch in catches:
-                    exc_label = self.fresh_label()
-                    exc_code = self.exception_code(catch.name.value)
-                    self.push('cmpq', '@exception', exc_code)
-                    self.push('jne', exc_label)
-                    self.push('copy', 0, result='@exception')
-                    self.for_block(catch.body)
-                    self.push('jmp', end_label)
-                    self.push_label(exc_label)
 
-                self.push_label(end_label)
+                for catch in catches:
+                    exception_hash = self.exception_code(catch.exception.value)
+                    temp = self.fresh_temporary()
+                    self.push('const', exception_hash, result = temp)
+                    self.push(OPCODES['subtraction'], '@exception', temp, result = temp)
+
+                    next_handler_label = self.fresh_label()
+                    self.push('jnz', temp, next_handler_label)
+
+                    self.for_statement(catch.body)
+                    self.push(OPCODES['bitwise-xor'], '@exception', '@exception', result = '@exception')
+                    self.push('jmp', next_label)
+
+                    self.push_label(next_handler_label)
+
+                self._try_blocks.pop()
+                if self._try_blocks:
+                    self.push('jnz', '@exception', self._try_blocks[-1][0])
+                else:
+                    label = self.fresh_label()
+                    self.push('jz', '@exception', label)
+                    self.push('ret')
+                    self.push_label(label)
+                
+                self.push_label(next_label)
 
             case _:
                 assert(False)
@@ -237,9 +263,16 @@ class MM:
                         self.push('param', i+1, temp)
                     if expr.type_ != Type.VOID:
                         target = self.fresh_temporary()
-                    self.push('call', proc.value, len(arguments), result = target)
-                    self.push('cmp', '@exception', 0)
-                    self.push('jne', self._try_blocks[-1][0] if self._try_blocks else 'ret')
+
+                    self.push('call', proc.value, len(arguments), result=target)
+                    
+                    if self._try_blocks:
+                        self.push('jnz', '@exception', self._try_blocks[-1][0])
+                    else:
+                        label = self.fresh_label()
+                        self.push('jz', '@exception', label)
+                        self.push('ret')
+                        self.push_label(label)
 
                 case PrintExpression(argument):
                     # print(argument)
