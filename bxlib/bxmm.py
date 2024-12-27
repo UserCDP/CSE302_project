@@ -85,6 +85,7 @@ class MM:
             self.push('const', self.exception_code(exception.value), result = '@exception')
 
     def for_program(self, prgm: Program):
+        self._tac.append(TACVar('exception', 0))
         for decl in prgm:
             match decl:
                 case GlobVarDecl(name, init, type_):
@@ -265,7 +266,7 @@ class MM:
                         target = self.fresh_temporary()
 
                     self.push('call', proc.value, len(arguments), result=target)
-                    
+                    # self.push('jnz', '@exception', 0)
                     if self._try_blocks:
                         self.push('jnz', '@exception', self._try_blocks[-1][0])
                     else:

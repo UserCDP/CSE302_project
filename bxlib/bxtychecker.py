@@ -2,6 +2,7 @@
 import contextlib as cl
 import itertools as it
 import typing as tp
+from collections import Counter
 
 from .bxerrors import Reporter
 from .bxast    import *
@@ -26,6 +27,15 @@ class PreTyper:
                     if name.value in procs:
                         self.reporter(
                             f'duplicated procedure name: {name.value}',
+                            position = name.position
+                        )
+                        continue
+
+                    # check if the items in raises are duplicated
+                    raise_values = [r.value for r in raises]
+                    if len(raise_values) != len(set(raise_values)):
+                        self.reporter(
+                            f'duplicated exception in raises: {name.value}',
                             position = name.position
                         )
                         continue
@@ -278,6 +288,7 @@ class TypeChecker:
                         )
 
             case TryExceptStatement(body, catches):
+                # print(catches)
                 self.for_block(body)
                 # print(catches)
 
@@ -285,7 +296,11 @@ class TypeChecker:
                     self.for_statement(catch)
 
             case CatchStatement(name, body):
-                pass
+                if name.value not in self.declared_exceptions:
+                    self.report(
+                        f"{name} is not declared as an exception",
+                        position=body.position
+                    )
 
             case _:
                 print(stmt)
@@ -316,7 +331,14 @@ class TypeChecker:
                             )
             
             case ExceptionDecl(name):
-                self.declared_exceptions.add(name.value)
+                # check if the exception is not there yet
+                if name.value not in self.declared_exceptions:
+                    self.declared_exceptions.add(name.value)
+                else:
+                    self.report(
+                        f'Exception {name.value} already declared',
+                        position=name.position
+                    )
 
             case GlobVarDecl(name, init, type_):
                 self.for_expression(init, etype = type_)

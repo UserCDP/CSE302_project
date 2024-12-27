@@ -1,5 +1,5 @@
 exception DivByZero;
-def foo() : int {
+def foo() : int raises DivByZero {
     try {
         raise DivByZero;
     } except DivByZero {
